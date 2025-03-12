@@ -103,7 +103,7 @@ const Calendar: Component = () => {
               `}
               onClick={() => setTab("personal")}
             >
-              Personal Calendar
+              Edit (personal) Calendar
             </button>
             <button
               class={`
@@ -177,21 +177,6 @@ const Calendar: Component = () => {
               
               <Show when={hoveredDay() === null}>
                 <div class="p-3 bg-gray-100 rounded">
-                  <Show when={lockedUserId() !== null}>
-                    <div class="mb-3 p-2 bg-blue-100 rounded flex justify-between items-center">
-                      <span>Currently showing {store.users[lockedUserId() || 0]?.username}'s calendar</span>
-                      <button 
-                        class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
-                        onClick={() => {
-                          setLockedUserId(null);
-                          setFocusedUserId(null);
-                        }}
-                      >
-                        Return to aggregate view
-                      </button>
-                    </div>
-                  </Show>
-                  
                   <h3 class="font-bold mb-2">All Users</h3>
                   <div class="flex flex-col gap-2">
                     <For each={Object.values(store.users)}
@@ -217,6 +202,21 @@ const Calendar: Component = () => {
                       )}
                     />
                   </div>
+
+                  <Show when={lockedUserId() !== null}>
+                    <div class="mt-3 p-2 bg-blue-100 rounded flex justify-between items-center">
+                      <span>Currently showing {store.users[lockedUserId() || 0]?.username}'s calendar</span>
+                      <button 
+                        class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
+                        onClick={() => {
+                          setLockedUserId(null);
+                          setFocusedUserId(null);
+                        }}
+                      >
+                        Return to aggregate view
+                      </button>
+                    </div>
+                  </Show>
                 </div>
               </Show>
             </div>
