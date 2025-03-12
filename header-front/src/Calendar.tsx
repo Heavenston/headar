@@ -181,8 +181,11 @@ const Calendar: Component = () => {
                     <div class="mb-3 p-2 bg-blue-100 rounded flex justify-between items-center">
                       <span>Currently showing {store.users[lockedUserId() || 0]?.username}'s calendar</span>
                       <button 
-                        class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        onClick={() => setLockedUserId(null)}
+                        class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
+                        onClick={() => {
+                          setLockedUserId(null);
+                          setFocusedUserId(null);
+                        }}
                       >
                         Return to aggregate view
                       </button>
@@ -204,7 +207,10 @@ const Calendar: Component = () => {
                           onMouseLeave={() => { 
                             if (lockedUserId() === null) setFocusedUserId(null) 
                           }}
-                          onClick={() => setLockedUserId(prev => prev === user.id ? null : user.id)}
+                          onClick={() => {
+                            setLockedUserId(prev => prev === user.id ? null : user.id);
+                            setFocusedUserId(lockedUserId());
+                          }}
                         >
                           {user.username}
                         </div>
@@ -231,7 +237,7 @@ const Calendar: Component = () => {
                   <For
                     each={eachDayOfInterval({ start: week, end: endOfWeek(week, { weekStartsOn: 1 }) })}
                     children={day => {
-                      const is_selected = () => currentSelection() && isWithinInterval(day, currentSelection()!);
+                      const is_selected = () => currentSelection() && isWithinInterval(day, currentSelection()!) || hoveredDay() === day;
                       const myRanges = createMemo<RangeAvailability[]>(() => (
                         Object.values(store.range_availability)
                           .filter(p => p != null)
@@ -313,7 +319,10 @@ const Calendar: Component = () => {
                           ${is_selected() ? `outline-solid outline-yellow-500` : ``}
                           ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
                         `}
-                        style={getBackgroundStyle()}
+                        style={{
+                          ...getBackgroundStyle(),
+                          "outline-color": tab() === "personal" ? ["red", "#FFD400", "#00A800"][availabilityLevel()] : undefined,
+                        }}
                         oncontextmenu={e => {
                           if (isSelecting()) {
                             e.preventDefault();
@@ -341,7 +350,7 @@ const Calendar: Component = () => {
                           }
                         }}
                         onMouseEnter={() => {
-                          if (tab() === "global") {
+                          if (tab() === "global" && lockedUserId() === null) {
                             setHoveredDay(day);
                           }
                           
