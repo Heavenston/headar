@@ -178,7 +178,7 @@ const Calendar: Component = () => {
               <Show when={hoveredDay() === null}>
                 <div class="p-3 bg-gray-100 rounded">
                   <h3 class="font-bold mb-2">All Users</h3>
-                  <div class="flex flex-col gap-2">
+                  <div class="flex flex-col gap-1">
                     <For each={Object.values(store.users)}
                       children={user => user && (
                         <div 
