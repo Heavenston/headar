@@ -21,6 +21,7 @@ const Calendar: Component = () => {
 
   const [currentSelection, setCurrentSelection] = createSignal<Interval | null>(null);
   const [isSelecting, setIsSelecting] = createSignal(false);
+  const [availabilityLevel, setAvailabilityLevel] = createSignal(0);
 
   const commitSelection = () => {
     setIsSelecting(false);
@@ -35,12 +36,12 @@ const Calendar: Component = () => {
     start = startOfDay(start);
     end = endOfDay(end);
 
-    store.connection.reducers.createAvailabilityRange(start.toISOString(), end.toISOString(), 2);
+    store.connection.reducers.createAvailabilityRange(start.toISOString(), end.toISOString(), availabilityLevel());
     setCurrentSelection(null);
 
     setTimeout(() => {
       console.log([...store.connection.db.rangeAvailability.iter()]);
-    }, 500);
+    }, 250);
   };
 
   const forgetSelection = () => {
@@ -84,6 +85,33 @@ const Calendar: Component = () => {
             DELETE ACCOUNT
           </button>
         </div>
+        
+        <div class="mt-10">
+          <h3 class="font-bold mb-3">Niveau de disponibilité</h3>
+          <div class="flex flex-col gap-3">
+            <div 
+              class={`p-3 rounded cursor-pointer ${availabilityLevel() === 0 ? 'ring-2 ring-blue-500' : ''}`}
+              style={{ background: '#f0a5a5' }}
+              onClick={() => setAvailabilityLevel(0)}
+            >
+              PAS disponible
+            </div>
+            <div 
+              class={`p-3 rounded cursor-pointer ${availabilityLevel() === 1 ? 'ring-2 ring-blue-500' : ''}`}
+              style={{ background: '#f0d6a5' }}
+              onClick={() => setAvailabilityLevel(1)}
+            >
+              Arrangeable
+            </div>
+            <div 
+              class={`p-3 rounded cursor-pointer ${availabilityLevel() === 2 ? 'ring-2 ring-blue-500' : ''}`}
+              style={{ background: '#a5f0aa' }}
+              onClick={() => setAvailabilityLevel(2)}
+            >
+              Devrait être disponible
+            </div>
+          </div>
+        </div>
       </div>
       <div class={`min-h-screen overflow-auto gap-10 flex flex-col p-10`}>
         <For each={months.map(mi => setMonth(base_date, mi))} children={month => {
@@ -122,7 +150,9 @@ const Calendar: Component = () => {
                           ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
                         `}
                         style={{
-                          background: `rgb(${255 * (level() / 2)},0,0)`
+                          background: level() === 0 ? '#f0a5a5' : 
+                                      level() === 1 ? '#f0d6a5' : 
+                                                     '#a5f0aa'
                         }}
                         oncontextmenu={e => {
                           if (isSelecting()) {

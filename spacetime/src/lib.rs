@@ -289,24 +289,23 @@ pub fn create_availability_range(ctx: &ReducerContext, range_start: String, rang
         let Ok(other_end) = time::OffsetDateTime::parse(&other.range_end, &Rfc3339)
         else { continue; };
 
-        // completely under
-        if other_start < start && other_end < end {
+        // No overlap - entirely before
+        if other_end <= start {
             continue;
         }
-        // completely above
-        if other_start > start && other_end > end {
+        // No overlap - entirely after
+        if other_start >= end {
             continue;
         }
 
-        // completely inside
+        // completely inside new range - delete it
         if other_start >= start && other_end <= end {
             ctx.db.range_availability().id().delete(other.id);
             continue;
         }
 
-        // completely around
+        // completely around new range - split in two
         if other_start < start && other_end > end {
-            // split in two
             ctx.db.range_availability().id().update(RangeAvailability {
                 id: other.id,
                 creator_user_id: other.creator_user_id,
@@ -324,15 +323,17 @@ pub fn create_availability_range(ctx: &ReducerContext, range_start: String, rang
             continue;
         }
 
-        if other_start < start && other_end <= end {
+        // Overlap on the left - adjust existing range end
+        if other_start < start && other_end > start && other_end <= end {
             ctx.db.range_availability().id().update(RangeAvailability {
-                range_end: (end - Duration::NANOSECOND).format(&Rfc3339).unwrap(),
+                range_end: (start - Duration::NANOSECOND).format(&Rfc3339).unwrap(),
                 ..other
             });
             continue;
         }
 
-        if other_start <= end && other_end > end {
+        // Overlap on the right - adjust existing range start
+        if other_start >= start && other_start < end && other_end > end {
             ctx.db.range_availability().id().update(RangeAvailability {
                 range_start: (end + Duration::NANOSECOND).format(&Rfc3339).unwrap(),
                 ..other
