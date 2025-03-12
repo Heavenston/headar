@@ -99,6 +99,9 @@ const App: Component = () => {
 
   return <GlobalStore.Provider value={globalStore}>
     <Switch>
+      <Match when={!globalStore.ready}>
+        <></>
+      </Match>
       <Match when={globalStore.user_id === null}>
         <Login />
       </Match>

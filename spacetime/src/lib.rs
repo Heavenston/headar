@@ -210,8 +210,8 @@ pub fn create_range_label(ctx: &ReducerContext, title: String, color_r: u8, colo
         return Ok(());
     };
 
-    if user_identity.user_id != 0 {
-        return Err("No signed in".into());
+    if user_identity.user_id == 0 {
+        return Err("Not signed in".into());
     }
 
     if time::OffsetDateTime::parse(&range_start, &Rfc3339).is_err() {
@@ -244,8 +244,8 @@ pub fn delete_range_label(ctx: &ReducerContext, id: u32) -> Result<(), String> {
         return Ok(());
     };
 
-    if user_identity.user_id != 0 {
-        return Err("No signed in".into());
+    if user_identity.user_id == 0 {
+        return Err("Not signed in".into());
     }
 
     let Some(range_label) = ctx.db.range_labels().id().find(id)
@@ -268,8 +268,8 @@ pub fn create_availability_range(ctx: &ReducerContext, range_start: String, rang
         return Ok(());
     };
 
-    if user_identity.user_id != 0 {
-        return Err("No signed in".into());
+    if user_identity.user_id == 0 {
+        return Err("Not signed in".into());
     }
 
     let Ok(start) = time::OffsetDateTime::parse(&range_start, &Rfc3339)
@@ -299,8 +299,28 @@ pub fn create_availability_range(ctx: &ReducerContext, range_start: String, rang
         }
 
         // completely inside
-        if other_start >= start && other_start <= end {
+        if other_start >= start && other_end <= end {
             ctx.db.range_availability().id().delete(other.id);
+            continue;
+        }
+
+        // completely around
+        if other_start < start && other_end > end {
+            // split in two
+            ctx.db.range_availability().id().update(RangeAvailability {
+                id: other.id,
+                creator_user_id: other.creator_user_id,
+                availability_level: other.availability_level,
+                range_start: other.range_start,
+                range_end: (start - Duration::NANOSECOND).format(&Rfc3339).unwrap(),
+            });
+            ctx.db.range_availability().insert(RangeAvailability {
+                id: 0,
+                creator_user_id: other.creator_user_id,
+                availability_level: other.availability_level,
+                range_start: (end + Duration::NANOSECOND).format(&Rfc3339).unwrap(),
+                range_end: other.range_end,
+            });
             continue;
         }
 
@@ -345,8 +365,8 @@ pub fn delete_availability_range(ctx: &ReducerContext, id: u32) -> Result<(), St
         return Ok(());
     };
 
-    if user_identity.user_id != 0 {
-        return Err("No signed in".into());
+    if user_identity.user_id == 0 {
+        return Err("Not signed in".into());
     }
 
     let Some(range_availability) = ctx.db.range_availability().id().find(id)

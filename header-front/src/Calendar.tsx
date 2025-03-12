@@ -1,7 +1,12 @@
-import { createSignal, For, onCleanup, type Component } from 'solid-js';
-import { eachDayOfInterval, eachWeekOfInterval, endOfMonth, endOfWeek, Interval, isSameDay, isWithinInterval, setMonth, startOfMonth } from "date-fns";
+import { createComputed, createMemo, createSignal, For, onCleanup, useContext, type Component } from 'solid-js';
+import { eachDayOfInterval, eachWeekOfInterval, endOfDay, endOfMonth, endOfWeek, Interval, isSameDay, isWithinInterval, setMonth, startOfDay, startOfMonth } from "date-fns";
+import { GlobalStore } from './App';
 
 const Calendar: Component = () => {
+  const store = useContext(GlobalStore);
+  if (!store)
+    return <></>;
+
   const controller = new AbortController();
   onCleanup(() => {
     controller.abort();
@@ -17,14 +22,31 @@ const Calendar: Component = () => {
   const [currentSelection, setCurrentSelection] = createSignal<Interval | null>(null);
   const [isSelecting, setIsSelecting] = createSignal(false);
 
-  function commitSelection() {
+  const commitSelection = () => {
     setIsSelecting(false);
-  }
+    const range = currentSelection();
+    if (!range)
+      return;
 
-  function forgetSelection() {
+    let start = new Date(range.start);
+    let end = new Date(range.end);
+    if (start.getTime() > end.getTime())
+      [end, start] = [start, end];
+    start = startOfDay(start);
+    end = endOfDay(end);
+
+    store.connection.reducers.createAvailabilityRange(start.toISOString(), end.toISOString(), 2);
+    setCurrentSelection(null);
+
+    setTimeout(() => {
+      console.log([...store.connection.db.rangeAvailability.iter()]);
+    }, 500);
+  };
+
+  const forgetSelection = () => {
     setIsSelecting(false);
     setCurrentSelection(null);
-  }
+  };
 
   window.addEventListener("keydown", (ev: KeyboardEvent) => {
     if (ev.code === "Escape") {
@@ -40,8 +62,30 @@ const Calendar: Component = () => {
   }, { signal: controller.signal });
 
   return (
-    <div>
-      <div class={`min-h-screen gap-10 flex flex-col items-center py-10`}>
+    <div class={`h-screen gap-10 flex flex-row justify-between`}>
+      <div class={`flex-grow p-10`}>
+        <div>
+          <span class="text-gray-600">Connected as </span>{store.users[store.user_id ?? 0]?.username}
+          {" "}<button
+            class={`bg-orange-300 px-1 rounded cursor-pointer`}
+            onClick={() => {
+              store.connection.reducers.diconnectFromClient();
+            }}
+          >
+            Sign out
+          </button>
+          {" "}<button
+            class={`bg-red-400 px-1 rounded cursor-pointer`}
+            onClick={() => {
+              if (confirm("ARE YOU SURE YOU WANT DO COMPLETELY DELETE YOUR PROFILE?"))
+                store.connection.reducers.deleteUser(store.user_id ?? 0);
+            }}
+          >
+            DELETE ACCOUNT
+          </button>
+        </div>
+      </div>
+      <div class={`min-h-screen overflow-auto gap-10 flex flex-col p-10`}>
         <For each={months.map(mi => setMonth(base_date, mi))} children={month => {
           const monthInterval = { start: startOfMonth(month), end: endOfMonth(month) };
           {/* Month */}
@@ -56,16 +100,39 @@ const Calendar: Component = () => {
                     each={eachDayOfInterval({ start: week, end: endOfWeek(week, { weekStartsOn: 1 }) })}
                     children={day => {
                       const is_selected = () => currentSelection() && isWithinInterval(day, currentSelection()!);
+                      const level = createMemo<number>(() => {
+                        for (const p of Object.values(store.range_availability)) {
+                          if (p == null)
+                            continue;
+                          if (p.creatorUserId !== store.user_id)
+                            continue;
+                          if (isWithinInterval(day, { start: p.rangeStart, end: p.rangeEnd }))
+                            return p.availabilityLevel;
+                        }
+                        return 0;
+                      });
 
                       return <span
+                        data-level={level()}
                         class={`
                           inline-block w-25 h-25 p-2 rounded
                           bg-gray-200
                           select-none
-                          ${is_selected() ? `bg-yellow-500` : ``}
+                          ${is_selected() ? `outline-solid outline-yellow-500` : ``}
                           ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
                         `}
+                        style={{
+                          background: `rgb(${255 * (level() / 2)},0,0)`
+                        }}
+                        oncontextmenu={e => {
+                          if (isSelecting()) {
+                            e.preventDefault();
+                            forgetSelection();
+                          }
+                        }}
                         onMouseDown={e => {
+                          if (e.button == 2)
+                            return;
                           e.stopPropagation();
                           if (isSelecting()) {
                             setCurrentSelection({
@@ -111,8 +178,6 @@ const Calendar: Component = () => {
             </div>
           </div>;
         }} />
-      </div>
-      <div>
       </div>
     </div>
   );
