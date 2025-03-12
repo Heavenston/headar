@@ -342,11 +342,6 @@ pub fn create_availability_range(ctx: &ReducerContext, range_start: String, rang
         }
     }
 
-    // Level zero is not stored, it is the default
-    if availability_level == 0 {
-        return Ok(());
-    }
-
     ctx.db.range_availability().insert(RangeAvailability {
         id: 0,
         creator_user_id: user_identity.user_id,

@@ -147,8 +147,8 @@ const Calendar: Component = () => {
                   <h3 class="font-bold mb-2">Availabilities for {hoveredDay()?.toLocaleDateString()}</h3>
                   <div class="flex flex-col gap-2">
                     <For each={Object.values(store.range_availability)
-                      .filter(p => p != null && hoveredDay() !== null && 
-                        isWithinInterval(hoveredDay()!, { start: p.rangeStart, end: p.rangeEnd }))
+                      .filter(p => p != null)
+                      .filter(p => hoveredDay() !== null && isWithinInterval(hoveredDay()!, { start: p.rangeStart, end: p.rangeEnd }))
                       .sort((a, b) => b.availabilityLevel - a.availabilityLevel)}
                       children={range => (
                         <div class="flex items-center gap-2">
@@ -186,7 +186,7 @@ const Calendar: Component = () => {
                   <h3 class="font-bold mb-2">All Users</h3>
                   <div class="flex flex-col gap-2">
                     <For each={Object.values(store.users)}
-                      children={user => (
+                      children={user => user && (
                         <div 
                           class={`p-2 rounded cursor-pointer ${
                             (focusedUserId() === user.id || lockedUserId() === user.id) ? 
@@ -234,15 +234,10 @@ const Calendar: Component = () => {
                       const packs = createMemo<[number, number, number]>(() => {
                         // In global view, account for all users (including those with no data)
                         if (tab() === "global" && focusedUserId() === null && lockedUserId() === null) {
-                          const missing_players = new Set<number>(Object.keys(store.users).map(Number).filter(id => store.users[id] != null));
-                          const result = myRanges().reduce((curr, ava) => {
+                          return myRanges().reduce((curr, ava) => {
                             curr[ava.availabilityLevel]++;
-                            missing_players.delete(ava.creatorUserId);
                             return curr;
                           }, [0, 0, 0] as [number, number, number]);
-                          // Players with no data are considered level 0 (unavailable)
-                          result[0] += missing_players.size;
-                          return result;
                         } else {
                           // For personal or focused user view, just count exact ranges
                           return myRanges().reduce((curr, ava) => {
@@ -256,19 +251,20 @@ const Calendar: Component = () => {
                         }
                       });
                       const bestLevel = () => packs().reduce((best, _current, current, arr) => arr[current] > arr[best] ? current : best);
-                      const personalLevel = createMemo<number>(() => (
-                        myRanges().find(p => p.creatorUserId === store.user_id)?.availabilityLevel ?? 0
+                      const personalLevel = createMemo<number | null>(() => (
+                        myRanges().find(p => p.creatorUserId === store.user_id)?.availabilityLevel ?? null
                       ));
 
                       const renderTargetLevel = () => tab() === "personal" ? personalLevel() : bestLevel();
                       
                       // Calculate proportions for global view
-                      const getBackgroundStyle = () => {
+                      const getBackgroundStyle = (): { background: string } => {
                         if (tab() === "personal") {
                           return {
                             background: renderTargetLevel() === 0 ? '#f0a5a5' : 
                                         renderTargetLevel() === 1 ? '#f0d6a5' : 
-                                                       '#a5f0aa'
+                                        renderTargetLevel() === 2 ? '#a5f0aa' :
+                                                                    '#e5e7eb'
                           };
                         } else {
                           // When focusing on a specific user, show only their availability
@@ -302,7 +298,7 @@ const Calendar: Component = () => {
                       };
 
                       return <span
-                        data-level={personalLevel()}
+                        data-level={personalLevel() ?? "null"}
                         data-tata={JSON.stringify(packs())}
                         class={`
                           inline-block w-25 h-25 p-2 rounded
