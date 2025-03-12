@@ -33,6 +33,7 @@ const Calendar: Component = () => {
   const [hoveredDay, setHoveredDay] = createSignal<Date | null>(null);
   const [focusedUserId, setFocusedUserId] = createSignal<number | null>(null);
   const [lockedUserId, setLockedUserId] = createSignal<number | null>(null);
+  const [isPanelVisible, setIsPanelVisible] = createSignal(true);
 
   const commitSelection = () => {
     setIsSelecting(false);
@@ -70,8 +71,14 @@ const Calendar: Component = () => {
   }, { signal: controller.signal });
 
   return (
-    <div class={`h-screen gap-5 flex flex-row justify-center`}>
-      <div class={`flex-grow p-5 flex flex-col gap-5 max-w-md`}>
+    <div class={`h-screen gap-5 flex flex-row justify-center relative`}>
+      <div class={`
+        flex-grow p-5 flex flex-col gap-5 md:max-w-md
+        md:relative absolute z-10 bg-white
+        w-full ${isPanelVisible() ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}
+        transition duration-300 ease-in-out
+        md:translate-x-0 md:w-auto md:overflow-visible
+      `}>
         <div>
           <span class="text-gray-600">Connected as </span>{store.users[store.user_id ?? 0]?.username}
           {" "}<button
@@ -223,17 +230,28 @@ const Calendar: Component = () => {
           </Show>
         </div>
       </div>
-      <div class={`min-h-screen overflow-auto gap-5 flex flex-col p-5`}>
+      <button
+        class="md:hidden fixed top-2 right-2 z-20 bg-blue-500 text-white p-2 rounded shadow-md"
+        onClick={() => setIsPanelVisible(!isPanelVisible())}
+      >
+        {isPanelVisible() ? '← Back to Calendar' : '→ Options'}
+      </button>
+      
+      <div class={`
+        min-h-screen overflow-auto gap-5 flex flex-col p-5 
+        md:ml-0 ml-2
+        ${isPanelVisible() ? 'md:block hidden' : 'block'}
+      `}>
         <For each={months.map(mi => setMonth(base_date, mi))} children={month => {
           const monthInterval = { start: startOfMonth(month), end: endOfMonth(month) };
           {/* Month */}
           return <div class="flex flex-col gap-3">
             <h2 class="capitalize text-xl">{intl.format(month)}</h2>
-            <div class={`gap-3 flex flex-col`}>
+            <div class={`gap-1 md:gap-3 flex flex-col`}>
               {/* Week */}
               <For
                 each={eachWeekOfInterval(monthInterval, { weekStartsOn: 1 })}
-                children={week => (<div class={`gap-3 flex flex-row`}>
+                children={week => (<div class={`gap-1 md:gap-3 flex flex-row`}>
                   <For
                     each={eachDayOfInterval({ start: week, end: endOfWeek(week, { weekStartsOn: 1 }) })}
                     children={day => {
@@ -313,9 +331,9 @@ const Calendar: Component = () => {
                         data-level={personalLevel() ?? "null"}
                         data-tata={JSON.stringify(packs())}
                         class={`
-                          inline-block w-25 h-25 p-2 rounded
+                          inline-block w-16 h-16 md:w-25 md:h-25 p-1 md:p-2 rounded
                           bg-gray-200
-                          select-none
+                          select-none text-sm md:text-base
                           ${is_selected() ? `outline-solid outline-yellow-500` : ``}
                           ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
                         `}
