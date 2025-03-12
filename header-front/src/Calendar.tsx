@@ -136,6 +136,16 @@ const Calendar: Component = () => {
               </div>
             </div>
           </Show>
+
+          <Show when={tab() === "global"}>
+            <div>
+              {/* WHEN A DAY IS HOVERED SHOW THE USERNAME OF USERS AND WHAT THEY INPUTED FOR THAT DAY */}
+              {/*
+              OTHERWISE SHOW THE LIST OF THE USERS, WHEN THEY ARE HOVERED HERE THE CALENDAR SHOULD SHOW THE CALENDAR OF THAT PARTICULAR PERSON
+              A CLICK SHOULD TOGGLE IT TO STAY, AND SHOW UNDER HERE 'Currently showing xxx's calendar, click *here* to go back'
+              */}
+            </div>
+          </Show>
         </div>
       </div>
       <div class={`min-h-screen overflow-auto gap-10 flex flex-col p-10`}>
