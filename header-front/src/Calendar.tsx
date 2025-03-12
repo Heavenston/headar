@@ -332,6 +332,8 @@ const Calendar: Component = () => {
                         onMouseDown={e => {
                           if (e.button == 2)
                             return;
+                          if (tab() !== "personal")
+                            return;
                           e.stopPropagation();
                           if (isSelecting()) {
                             setCurrentSelection({
@@ -353,6 +355,9 @@ const Calendar: Component = () => {
                           if (tab() === "global" && lockedUserId() === null) {
                             setHoveredDay(day);
                           }
+
+                          if (tab() !== "personal")
+                            return;
                           
                           if (!isSelecting())
                             return;
