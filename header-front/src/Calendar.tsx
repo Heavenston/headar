@@ -3,6 +3,12 @@ import { eachDayOfInterval, eachWeekOfInterval, endOfDay, endOfMonth, endOfWeek,
 import { GlobalStore } from './App';
 import { RangeAvailability } from './spacetime_bindings';
 
+// Availability level colors
+const COLOR_UNAVAILABLE = '#f0a5a5';
+const COLOR_ARRANGEABLE = '#f0d6a5';
+const COLOR_AVAILABLE = '#a5f0aa';
+const COLOR_NO_DATA = '#e5e7eb';
+
 const Calendar: Component = () => {
   const store = useContext(GlobalStore);
   if (!store)
@@ -117,21 +123,21 @@ const Calendar: Component = () => {
               <div class="flex flex-col gap-3">
                 <div 
                   class={`p-3 rounded cursor-pointer ${availabilityLevel() === 0 ? 'ring-2 ring-blue-500' : ''}`}
-                  style={{ background: '#f0a5a5' }}
+                  style={{ background: COLOR_UNAVAILABLE }}
                   onClick={() => setAvailabilityLevel(0)}
                 >
                   PAS disponible
                 </div>
                 <div 
                   class={`p-3 rounded cursor-pointer ${availabilityLevel() === 1 ? 'ring-2 ring-blue-500' : ''}`}
-                  style={{ background: '#f0d6a5' }}
+                  style={{ background: COLOR_ARRANGEABLE }}
                   onClick={() => setAvailabilityLevel(1)}
                 >
                   Arrangeable
                 </div>
                 <div 
                   class={`p-3 rounded cursor-pointer ${availabilityLevel() === 2 ? 'ring-2 ring-blue-500' : ''}`}
-                  style={{ background: '#a5f0aa' }}
+                  style={{ background: COLOR_AVAILABLE }}
                   onClick={() => setAvailabilityLevel(2)}
                 >
                   Devrait être disponible
@@ -154,8 +160,8 @@ const Calendar: Component = () => {
                         <div class="flex items-center gap-2">
                           <div class="w-4 h-4 rounded" 
                                style={{ 
-                                 background: range.availabilityLevel === 0 ? '#f0a5a5' : 
-                                             range.availabilityLevel === 1 ? '#f0d6a5' : '#a5f0aa' 
+                                 background: range.availabilityLevel === 0 ? COLOR_UNAVAILABLE : 
+                                             range.availabilityLevel === 1 ? COLOR_ARRANGEABLE : COLOR_AVAILABLE
                                }}></div>
                           <span>{store.users[range.creatorUserId]?.username || 'Unknown user'}</span>
                           <span class="text-gray-500 text-sm">
@@ -261,10 +267,10 @@ const Calendar: Component = () => {
                       const getBackgroundStyle = (): { background: string } => {
                         if (tab() === "personal") {
                           return {
-                            background: renderTargetLevel() === 0 ? '#f0a5a5' : 
-                                        renderTargetLevel() === 1 ? '#f0d6a5' : 
-                                        renderTargetLevel() === 2 ? '#a5f0aa' :
-                                                                    '#e5e7eb'
+                            background: renderTargetLevel() === 0 ? COLOR_UNAVAILABLE : 
+                                        renderTargetLevel() === 1 ? COLOR_ARRANGEABLE : 
+                                        renderTargetLevel() === 2 ? COLOR_AVAILABLE :
+                                                                    COLOR_NO_DATA
                           };
                         } else {
                           // When focusing on a specific user, show only their availability
@@ -273,16 +279,16 @@ const Calendar: Component = () => {
                             const userRange = myRanges().find(range => range.creatorUserId === targetUserId);
                             if (userRange) {
                               return {
-                                background: userRange.availabilityLevel === 0 ? '#f0a5a5' : 
-                                            userRange.availabilityLevel === 1 ? '#f0d6a5' : '#a5f0aa'
+                                background: userRange.availabilityLevel === 0 ? COLOR_UNAVAILABLE : 
+                                            userRange.availabilityLevel === 1 ? COLOR_ARRANGEABLE : COLOR_AVAILABLE
                               };
                             }
-                            return { background: '#e5e7eb' }; // gray-200 for no data
+                            return { background: COLOR_NO_DATA }; // for no data
                           }
                           
                           // Regular aggregate view with proportional coloring
                           const total = packs()[0] + packs()[1] + packs()[2];
-                          if (total === 0) return { background: '#e5e7eb' };
+                          if (total === 0) return { background: COLOR_NO_DATA };
                           
                           const prop0 = (packs()[0] / total) * 100;
                           const prop1 = (packs()[1] / total) * 100;
@@ -290,9 +296,9 @@ const Calendar: Component = () => {
                           
                           return {
                             background: `linear-gradient(to right, 
-                              #f0a5a5 0%, #f0a5a5 ${prop0}%, 
-                              #f0d6a5 ${prop0}%, #f0d6a5 ${prop0 + prop1}%, 
-                              #a5f0aa ${prop0 + prop1}%, #a5f0aa 100%)`
+                              ${COLOR_UNAVAILABLE} 0%, ${COLOR_UNAVAILABLE} ${prop0}%, 
+                              ${COLOR_ARRANGEABLE} ${prop0}%, ${COLOR_ARRANGEABLE} ${prop0 + prop1}%, 
+                              ${COLOR_AVAILABLE} ${prop0 + prop1}%, ${COLOR_AVAILABLE} 100%)`
                           };
                         }
                       };
