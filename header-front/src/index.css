@@ -1,1 +1,11 @@
 @import 'tailwindcss';
+
+.range-label-line {
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+
+.range-label-line:hover {
+  opacity: 0.8;
+  z-index: 10;
+}

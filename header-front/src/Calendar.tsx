@@ -34,6 +34,9 @@ const Calendar: Component = () => {
   const [focusedUserId, setFocusedUserId] = createSignal<number | null>(null);
   const [lockedUserId, setLockedUserId] = createSignal<number | null>(null);
   const [isPanelVisible, setIsPanelVisible] = createSignal(true);
+  const [isAddingRangeLabel, setIsAddingRangeLabel] = createSignal(false);
+  const [rangeLabelMessage, setRangeLabelMessage] = createSignal("");
+  const [rangeLabelColor, setRangeLabelColor] = createSignal("#FF5733");
 
   const commitSelection = () => {
     setIsSelecting(false);
@@ -48,7 +51,26 @@ const Calendar: Component = () => {
     start = startOfDay(start);
     end = endOfDay(end);
 
-    store.connection.reducers.createAvailabilityRange(start.toISOString(), end.toISOString(), availabilityLevel());
+    if (isAddingRangeLabel()) {
+      const hexColor = rangeLabelColor().replace('#', '');
+      const r = parseInt(hexColor.substring(0, 2), 16);
+      const g = parseInt(hexColor.substring(2, 4), 16);
+      const b = parseInt(hexColor.substring(4, 6), 16);
+      
+      store.connection.reducers.createRangeLabel(
+        rangeLabelMessage(),
+        r,
+        g,
+        b,
+        start.toISOString(),
+        end.toISOString()
+      );
+      
+      setIsAddingRangeLabel(false);
+      setRangeLabelMessage("");
+    } else {
+      store.connection.reducers.createAvailabilityRange(start.toISOString(), end.toISOString(), availabilityLevel());
+    }
     setCurrentSelection(null);
   };
 
@@ -60,6 +82,7 @@ const Calendar: Component = () => {
   window.addEventListener("keydown", (ev: KeyboardEvent) => {
     if (ev.code === "Escape") {
       forgetSelection();
+      setIsAddingRangeLabel(false);
       ev.preventDefault();
     }
   }, { signal: controller.signal });
@@ -149,6 +172,53 @@ const Calendar: Component = () => {
                 >
                   Devrait être disponible
                 </div>
+
+                <div class="border-t border-gray-300 my-2 pt-3">
+                  <button
+                    class="w-full p-3 bg-indigo-100 rounded text-indigo-800 hover:bg-indigo-200 cursor-pointer"
+                    onClick={() => setIsAddingRangeLabel(true)}
+                  >
+                    + Add Range Label
+                  </button>
+                </div>
+                
+                <Show when={isAddingRangeLabel()}>
+                  <div class="p-3 bg-indigo-50 rounded">
+                    <h3 class="font-bold mb-2">Create Range Label</h3>
+                    <div class="flex flex-col gap-3">
+                      <div>
+                        <label class="block text-sm font-medium mb-1">Message</label>
+                        <input
+                          type="text"
+                          value={rangeLabelMessage()}
+                          onInput={(e) => setRangeLabelMessage(e.target.value)}
+                          class="w-full p-2 border rounded"
+                          placeholder="Enter label message"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium mb-1">Color</label>
+                        <input
+                          type="color"
+                          value={rangeLabelColor()}
+                          onInput={(e) => setRangeLabelColor(e.target.value)}
+                          class="w-full h-10"
+                        />
+                      </div>
+                      <div class="text-sm text-gray-600 mt-1">
+                        Select days on the calendar to apply this label
+                      </div>
+                      <div class="flex justify-between mt-2">
+                        <button
+                          class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer"
+                          onClick={() => setIsAddingRangeLabel(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Show>
               </div>
             </div>
           </Show>
@@ -179,6 +249,43 @@ const Calendar: Component = () => {
                       )}
                     />
                   </div>
+                  
+                  <Show when={Object.values(store.range_labels)
+                    .filter(p => p != null)
+                    .filter(p => hoveredDay() !== null && isWithinInterval(hoveredDay()!, { start: new Date(p.rangeStart), end: new Date(p.rangeEnd) }))
+                    .length > 0}
+                  >
+                    <h3 class="font-bold mb-2 mt-4">Labels for this day</h3>
+                    <div class="flex flex-col gap-2">
+                      <For each={Object.values(store.range_labels)
+                        .filter(p => p != null)
+                        .filter(p => hoveredDay() !== null && isWithinInterval(hoveredDay()!, { start: new Date(p.rangeStart), end: new Date(p.rangeEnd) }))}
+                        children={label => (
+                          <div class="flex items-center gap-2 p-1 hover:bg-gray-200 rounded">
+                            <div class="w-4 h-4 rounded-full" 
+                                style={{ background: `rgb(${label.colorR}, ${label.colorG}, ${label.colorB})` }}></div>
+                            <span class="flex-grow">{label.title}</span>
+                            <span class="text-gray-500 text-sm">
+                              ({store.users[label.creatorUserId]?.username || 'Unknown user'})
+                            </span>
+                            <Show when={store.user_id === label.creatorUserId}>
+                              <button
+                                class="text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-300 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm("Are you sure you want to delete this label?")) {
+                                    store.connection.reducers.deleteRangeLabel(label.id);
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </Show>
+                          </div>
+                        )}
+                      />
+                    </div>
+                  </Show>
                 </div>
               </Show>
               
@@ -209,6 +316,36 @@ const Calendar: Component = () => {
                       )}
                     />
                   </div>
+                  
+                  <Show when={Object.values(store.range_labels).length > 0}>
+                    <h3 class="font-bold mb-2 mt-4">Range Labels</h3>
+                    <div class="flex flex-col gap-1">
+                      <For each={Object.values(store.range_labels)}
+                        children={label => label && (
+                          <div class="p-2 flex items-center gap-2 rounded hover:bg-gray-200">
+                            <div 
+                              class="w-4 h-4 rounded-full" 
+                              style={{ background: `rgb(${label.colorR}, ${label.colorG}, ${label.colorB})` }} 
+                            />
+                            <div class="flex-grow">{label.title}</div>
+                            <Show when={store.user_id === label.creatorUserId}>
+                              <button
+                                class="text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-300 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm("Are you sure you want to delete this label?")) {
+                                    store.connection.reducers.deleteRangeLabel(label.id);
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </Show>
+                          </div>
+                        )}
+                      />
+                    </div>
+                  </Show>
 
                   <Show when={lockedUserId() !== null}>
                     <div class="mt-3 p-2 bg-blue-100 rounded flex justify-between items-center">
@@ -260,6 +397,12 @@ const Calendar: Component = () => {
                         Object.values(store.range_availability)
                           .filter(p => p != null)
                           .filter(p => isWithinInterval(day, { start: p.rangeStart, end: p.rangeEnd }))
+                      ));
+                      
+                      const dayRangeLabels = createMemo(() => (
+                        Object.values(store.range_labels)
+                          .filter(p => p != null)
+                          .filter(p => isWithinInterval(day, { start: new Date(p.rangeStart), end: new Date(p.rangeEnd) }))
                       ));
                       const packs = createMemo<[number, number, number]>(() => {
                         // In global view, account for all users (including those with no data)
@@ -327,81 +470,106 @@ const Calendar: Component = () => {
                         }
                       };
 
-                      return <span
-                        data-level={personalLevel() ?? "null"}
-                        data-tata={JSON.stringify(packs())}
-                        class={`
-                          inline-block w-16 h-16 md:w-25 md:h-25 p-1 md:p-2 rounded
-                          bg-gray-200
-                          select-none text-sm md:text-base
-                          ${is_selected() ? `outline-solid outline-yellow-500` : ``}
-                          ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
-                        `}
-                        style={{
-                          ...getBackgroundStyle(),
-                          "outline-color": tab() === "personal" ? ["red", "#FFD400", "#00A800"][availabilityLevel()] : undefined,
-                        }}
-                        oncontextmenu={e => {
-                          if (isSelecting()) {
-                            e.preventDefault();
-                            forgetSelection();
-                          }
-                        }}
-                        onMouseDown={e => {
-                          if (e.button == 2)
-                            return;
-                          if (tab() !== "personal")
-                            return;
-                          e.stopPropagation();
-                          if (isSelecting()) {
+                      const renderRangeLabels = () => {
+                        const labels = dayRangeLabels();
+                        if (labels.length === 0) return null;
+                        
+                        return (
+                          <div class="absolute top-0 left-0 right-0 flex flex-col w-full overflow-hidden">
+                            {labels.map((label, index) => (
+                              <div 
+                                class={`h-1.5 w-full range-label-line cursor-pointer ${index === 0 ? 'rounded-t-md' : ''}`}
+                                style={{ 
+                                  background: `rgb(${label.colorR}, ${label.colorG}, ${label.colorB})`,
+                                  marginTop: index > 0 ? '1px' : '0',
+                                }}
+                                title={label.title}
+                              />
+                            ))}
+                          </div>
+                        );
+                      };
+                      
+                      return (
+                        <div 
+                          class={`
+                            relative inline-block w-16 h-16 md:w-25 md:h-25 p-1 md:p-2 rounded
+                            bg-gray-200 overflow-hidden
+                            select-none text-sm md:text-base
+                            ${is_selected() ? `outline-solid outline-yellow-500` : ``}
+                            ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
+                          `}
+                          style={{
+                            ...getBackgroundStyle(),
+                            "outline-color": tab() === "personal" ? (
+                              isAddingRangeLabel() ? rangeLabelColor() : ["red", "#FFD400", "#00A800"][availabilityLevel()]
+                            ) : undefined,
+                          }}
+                          oncontextmenu={e => {
+                            if (isSelecting()) {
+                              e.preventDefault();
+                              forgetSelection();
+                            }
+                          }}
+                          onMouseDown={e => {
+                            if (e.button == 2)
+                              return;
+                            if (tab() !== "personal")
+                              return;
+                            e.stopPropagation();
+                            if (isSelecting()) {
+                              setCurrentSelection({
+                                start: currentSelection()?.start ?? day,
+                                end: day,
+                              });
+                              setIsSelecting(false);
+                              commitSelection();
+                            }
+                            else {
+                              setCurrentSelection({
+                                start: day,
+                                end: day,
+                              });
+                              setIsSelecting(true);
+                            }
+                          }}
+                          onMouseEnter={() => {
+                            if (tab() === "global" && lockedUserId() === null) {
+                              setHoveredDay(day);
+                            }
+
+                            if (tab() !== "personal")
+                              return;
+                            
+                            if (!isSelecting())
+                              return;
                             setCurrentSelection({
                               start: currentSelection()?.start ?? day,
                               end: day,
                             });
-                            setIsSelecting(false);
-                            commitSelection();
-                          }
-                          else {
-                            setCurrentSelection({
-                              start: day,
-                              end: day,
-                            });
-                            setIsSelecting(true);
-                          }
-                        }}
-                        onMouseEnter={() => {
-                          if (tab() === "global" && lockedUserId() === null) {
-                            setHoveredDay(day);
-                          }
-
-                          if (tab() !== "personal")
-                            return;
-                          
-                          if (!isSelecting())
-                            return;
-                          setCurrentSelection({
-                            start: currentSelection()?.start ?? day,
-                            end: day,
-                          });
-                        }}
-                        onMouseLeave={() => {
-                          if (tab() === "global") {
-                            setHoveredDay(null);
-                          }
-                        }}
-                        onMouseUp={() => {
-                          if (!isSelecting())
-                            return;
-                          if (!currentSelection() || !isSameDay(day, currentSelection()?.start ?? day)) {
-                            setIsSelecting(false);
-                            commitSelection();
-                          }
-                        }}
-                      >
-                        <span>
-                          {day.getDate()}
-                        </span>
-                      </span>;
+                          }}
+                          onMouseLeave={() => {
+                            if (tab() === "global") {
+                              setHoveredDay(null);
+                            }
+                          }}
+                          onMouseUp={() => {
+                            if (!isSelecting())
+                              return;
+                            if (!currentSelection() || !isSameDay(day, currentSelection()?.start ?? day)) {
+                              setIsSelecting(false);
+                              commitSelection();
+                            }
+                          }}
+                          data-level={personalLevel() ?? "null"}
+                          data-tata={JSON.stringify(packs())}
+                        >
+                          <span>
+                            {day.getDate()}
+                          </span>
+                          {renderRangeLabels()}
+                        </div>
+                      );
                     }}
                   />
                 </div>)}
