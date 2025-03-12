@@ -24,6 +24,9 @@ const Calendar: Component = () => {
   const [isSelecting, setIsSelecting] = createSignal(false);
   const [availabilityLevel, setAvailabilityLevel] = createSignal(0);
   const [tab, setTab] = createSignal<"global" | "personal">("personal");
+  const [hoveredDay, setHoveredDay] = createSignal<Date | null>(null);
+  const [focusedUserId, setFocusedUserId] = createSignal<number | null>(null);
+  const [lockedUserId, setLockedUserId] = createSignal<number | null>(null);
 
   const commitSelection = () => {
     setIsSelecting(false);
@@ -138,12 +141,72 @@ const Calendar: Component = () => {
           </Show>
 
           <Show when={tab() === "global"}>
-            <div>
-              {/* WHEN A DAY IS HOVERED SHOW THE USERNAME OF USERS AND WHAT THEY INPUTED FOR THAT DAY */}
-              {/*
-              OTHERWISE SHOW THE LIST OF THE USERS, WHEN THEY ARE HOVERED HERE THE CALENDAR SHOULD SHOW THE CALENDAR OF THAT PARTICULAR PERSON
-              A CLICK SHOULD TOGGLE IT TO STAY, AND SHOW UNDER HERE 'Currently showing xxx's calendar, click *here* to go back'
-              */}
+            <div class="flex flex-col gap-3">
+              <Show when={hoveredDay() !== null}>
+                <div class="p-3 bg-gray-100 rounded">
+                  <h3 class="font-bold mb-2">Availabilities for {hoveredDay()?.toLocaleDateString()}</h3>
+                  <div class="flex flex-col gap-2">
+                    <For each={Object.values(store.range_availability)
+                      .filter(p => p != null && hoveredDay() !== null && 
+                        isWithinInterval(hoveredDay()!, { start: p.rangeStart, end: p.rangeEnd }))
+                      .sort((a, b) => b.availabilityLevel - a.availabilityLevel)}
+                      children={range => (
+                        <div class="flex items-center gap-2">
+                          <div class="w-4 h-4 rounded" 
+                               style={{ 
+                                 background: range.availabilityLevel === 0 ? '#f0a5a5' : 
+                                             range.availabilityLevel === 1 ? '#f0d6a5' : '#a5f0aa' 
+                               }}></div>
+                          <span>{store.users[range.creatorUserId]?.username || 'Unknown user'}</span>
+                          <span class="text-gray-500 text-sm">
+                            {range.availabilityLevel === 0 ? '(Not available)' : 
+                             range.availabilityLevel === 1 ? '(Arrangeable)' : '(Available)'}
+                          </span>
+                        </div>
+                      )}
+                    />
+                  </div>
+                </div>
+              </Show>
+              
+              <Show when={hoveredDay() === null}>
+                <div class="p-3 bg-gray-100 rounded">
+                  <Show when={lockedUserId() !== null}>
+                    <div class="mb-3 p-2 bg-blue-100 rounded flex justify-between items-center">
+                      <span>Currently showing {store.users[lockedUserId() || 0]?.username}'s calendar</span>
+                      <button 
+                        class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onClick={() => setLockedUserId(null)}
+                      >
+                        Return to aggregate view
+                      </button>
+                    </div>
+                  </Show>
+                  
+                  <h3 class="font-bold mb-2">All Users</h3>
+                  <div class="flex flex-col gap-2">
+                    <For each={Object.values(store.users)}
+                      children={user => (
+                        <div 
+                          class={`p-2 rounded cursor-pointer ${
+                            (focusedUserId() === user.id || lockedUserId() === user.id) ? 
+                              'bg-blue-200' : 'hover:bg-gray-200'
+                          }`}
+                          onMouseEnter={() => { 
+                            if (lockedUserId() === null) setFocusedUserId(user.id) 
+                          }}
+                          onMouseLeave={() => { 
+                            if (lockedUserId() === null) setFocusedUserId(null) 
+                          }}
+                          onClick={() => setLockedUserId(prev => prev === user.id ? null : user.id)}
+                        >
+                          {user.username}
+                        </div>
+                      )}
+                    />
+                  </div>
+                </div>
+              </Show>
             </div>
           </Show>
         </div>
@@ -169,14 +232,28 @@ const Calendar: Component = () => {
                           .filter(p => isWithinInterval(day, { start: p.rangeStart, end: p.rangeEnd }))
                       ));
                       const packs = createMemo<[number, number, number]>(() => {
-                        const missing_players = new Set<number>(Object.keys(store.users).map(Number).filter(id => store.users[id] != null));
-                        const result = myRanges().reduce((curr, ava) => {
-                          curr[ava.availabilityLevel]++;
-                          missing_players.delete(ava.creatorUserId);
-                          return curr;
-                        }, [0, 0, 0] as [number, number, number]);
-                        result[0] += missing_players.size;
-                        return result;
+                        // In global view, account for all users (including those with no data)
+                        if (tab() === "global" && focusedUserId() === null && lockedUserId() === null) {
+                          const missing_players = new Set<number>(Object.keys(store.users).map(Number).filter(id => store.users[id] != null));
+                          const result = myRanges().reduce((curr, ava) => {
+                            curr[ava.availabilityLevel]++;
+                            missing_players.delete(ava.creatorUserId);
+                            return curr;
+                          }, [0, 0, 0] as [number, number, number]);
+                          // Players with no data are considered level 0 (unavailable)
+                          result[0] += missing_players.size;
+                          return result;
+                        } else {
+                          // For personal or focused user view, just count exact ranges
+                          return myRanges().reduce((curr, ava) => {
+                            if (tab() === "personal" || 
+                                (focusedUserId() !== null && ava.creatorUserId === focusedUserId()) ||
+                                (lockedUserId() !== null && ava.creatorUserId === lockedUserId())) {
+                              curr[ava.availabilityLevel]++;
+                            }
+                            return curr;
+                          }, [0, 0, 0] as [number, number, number]);
+                        }
                       });
                       const bestLevel = () => packs().reduce((best, _current, current, arr) => arr[current] > arr[best] ? current : best);
                       const personalLevel = createMemo<number>(() => (
@@ -194,8 +271,22 @@ const Calendar: Component = () => {
                                                        '#a5f0aa'
                           };
                         } else {
+                          // When focusing on a specific user, show only their availability
+                          if (focusedUserId() !== null || lockedUserId() !== null) {
+                            const targetUserId = lockedUserId() !== null ? lockedUserId() : focusedUserId();
+                            const userRange = myRanges().find(range => range.creatorUserId === targetUserId);
+                            if (userRange) {
+                              return {
+                                background: userRange.availabilityLevel === 0 ? '#f0a5a5' : 
+                                            userRange.availabilityLevel === 1 ? '#f0d6a5' : '#a5f0aa'
+                              };
+                            }
+                            return { background: '#e5e7eb' }; // gray-200 for no data
+                          }
+                          
+                          // Regular aggregate view with proportional coloring
                           const total = packs()[0] + packs()[1] + packs()[2];
-                          if (total === 0) return { background: '#f0a5a5' };
+                          if (total === 0) return { background: '#e5e7eb' };
                           
                           const prop0 = (packs()[0] / total) * 100;
                           const prop1 = (packs()[1] / total) * 100;
@@ -248,12 +339,21 @@ const Calendar: Component = () => {
                           }
                         }}
                         onMouseEnter={() => {
+                          if (tab() === "global") {
+                            setHoveredDay(day);
+                          }
+                          
                           if (!isSelecting())
                             return;
                           setCurrentSelection({
                             start: currentSelection()?.start ?? day,
                             end: day,
                           });
+                        }}
+                        onMouseLeave={() => {
+                          if (tab() === "global") {
+                            setHoveredDay(null);
+                          }
                         }}
                         onMouseUp={() => {
                           if (!isSelecting())
