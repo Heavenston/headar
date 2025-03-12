@@ -70,8 +70,8 @@ const Calendar: Component = () => {
   }, { signal: controller.signal });
 
   return (
-    <div class={`h-screen gap-5 flex flex-row justify-between`}>
-      <div class={`flex-grow p-5 flex flex-col gap-5`}>
+    <div class={`h-screen gap-5 flex flex-row justify-center`}>
+      <div class={`flex-grow p-5 flex flex-col gap-5 max-w-md`}>
         <div>
           <span class="text-gray-600">Connected as </span>{store.users[store.user_id ?? 0]?.username}
           {" "}<button
@@ -223,7 +223,7 @@ const Calendar: Component = () => {
           </Show>
         </div>
       </div>
-      <div class={`min-h-screen overflow-auto gap-10 flex flex-col p-10`}>
+      <div class={`min-h-screen overflow-auto gap-5 flex flex-col p-5`}>
         <For each={months.map(mi => setMonth(base_date, mi))} children={month => {
           const monthInterval = { start: startOfMonth(month), end: endOfMonth(month) };
           {/* Month */}
