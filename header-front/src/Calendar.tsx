@@ -158,21 +158,51 @@ const Calendar: Component = () => {
                           .filter(p => p != null)
                           .filter(p => isWithinInterval(day, { start: p.rangeStart, end: p.rangeEnd }))
                       ));
-                      const packs = createMemo<[number, number, number]>(() => (
-                        myRanges().reduce((curr, ava) => {
+                      const packs = createMemo<[number, number, number]>(() => {
+                        const missing_players = new Set<number>(Object.keys(store.users).map(Number).filter(id => store.users[id] != null));
+                        const result = myRanges().reduce((curr, ava) => {
                           curr[ava.availabilityLevel]++;
+                          missing_players.delete(ava.creatorUserId);
                           return curr;
-                        }, [0, 0, 0] as [number, number, number])
-                      ));
+                        }, [0, 0, 0] as [number, number, number]);
+                        result[0] += missing_players.size;
+                        return result;
+                      });
                       const bestLevel = () => packs().reduce((best, _current, current, arr) => arr[current] > arr[best] ? current : best);
                       const personalLevel = createMemo<number>(() => (
                         myRanges().find(p => p.creatorUserId === store.user_id)?.availabilityLevel ?? 0
                       ));
 
                       const renderTargetLevel = () => tab() === "personal" ? personalLevel() : bestLevel();
+                      
+                      // Calculate proportions for global view
+                      const getBackgroundStyle = () => {
+                        if (tab() === "personal") {
+                          return {
+                            background: renderTargetLevel() === 0 ? '#f0a5a5' : 
+                                        renderTargetLevel() === 1 ? '#f0d6a5' : 
+                                                       '#a5f0aa'
+                          };
+                        } else {
+                          const total = packs()[0] + packs()[1] + packs()[2];
+                          if (total === 0) return { background: '#f0a5a5' };
+                          
+                          const prop0 = (packs()[0] / total) * 100;
+                          const prop1 = (packs()[1] / total) * 100;
+                          // const prop2 = (packs()[2] / total) * 100;
+                          
+                          return {
+                            background: `linear-gradient(to right, 
+                              #f0a5a5 0%, #f0a5a5 ${prop0}%, 
+                              #f0d6a5 ${prop0}%, #f0d6a5 ${prop0 + prop1}%, 
+                              #a5f0aa ${prop0 + prop1}%, #a5f0aa 100%)`
+                          };
+                        }
+                      };
 
                       return <span
                         data-level={personalLevel()}
+                        data-tata={JSON.stringify(packs())}
                         class={`
                           inline-block w-25 h-25 p-2 rounded
                           bg-gray-200
@@ -180,11 +210,7 @@ const Calendar: Component = () => {
                           ${is_selected() ? `outline-solid outline-yellow-500` : ``}
                           ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
                         `}
-                        style={{
-                          background: renderTargetLevel() === 0 ? '#f0a5a5' : 
-                                      renderTargetLevel() === 1 ? '#f0d6a5' : 
-                                                     '#a5f0aa'
-                        }}
+                        style={getBackgroundStyle()}
                         oncontextmenu={e => {
                           if (isSelecting()) {
                             e.preventDefault();
