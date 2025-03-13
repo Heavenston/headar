@@ -132,7 +132,7 @@ const Calendar: Component = () => {
         absolute inset
         lg:sticky lg:top-5 lg:z-99
 
-        ${isPanelVisible() ? "" : "hidden lg:visible"}
+        ${isPanelVisible() ? "" : "hidden lg:flex"}
       `}>
         <div class="flex flex-col gap-2">
           <div class="flex flex-row flex-wrap-reverse gap-2">
