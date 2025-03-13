@@ -21,7 +21,7 @@ const Login: Component = () => {
   };
 
   return <div class="min-h-screen flex justify-center items-center">
-    <div class="bg-gray-100 min-w-3xs px-4 py-4 rounded shadow">
+    <div class="bg-gray-100 w-2xs p-4 rounded shadow">
       <h1>Chose a user</h1>
       <hr class="my-1" />
       <ul>
@@ -53,25 +53,27 @@ const Login: Component = () => {
               </button>
             </Match>
             <Match when={creating()}>
-              <form onSubmit={(e) => {
-                e.preventDefault();
+              <form
+                class="flex flex-row gap-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
 
-                const h = e.currentTarget.firstChild;
-                if (h instanceof HTMLInputElement) {
-                  createUser(h.value);
-                }
-              }}>
+                  const h = e.currentTarget.firstChild;
+                  if (h instanceof HTMLInputElement) {
+                    createUser(h.value);
+                  }
+                }}
+              >
                 <input
                   name="username"
                   placeholder="username"
-                  ref={e => {
-                    setTimeout(() => {
-                      e.focus();
-                    });
-                  }}
-                  class="inline-block w-full rounded bg-gray-200 px-2"
-                  onBlur={() => setCreating(false)}
+                  ref={e => { setTimeout(() => { e.focus(); }); }}
+                  class="inline-block min-w-0 flex-grow rounded bg-gray-200 px-2"
+                  onBlur={() => { setTimeout(() => setCreating(false), 250) }}
                 />
+                <button class="inline-block rounded bg-gray-200 px-2">
+                  Confirm
+                </button>
               </form>
             </Match>
           </Switch>
