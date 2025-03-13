@@ -118,6 +118,31 @@ pub fn create_user(ctx: &ReducerContext, username: String) {
 }
 
 #[spacetimedb::reducer]
+pub fn rename(ctx: &ReducerContext, new_username: String) -> Result<(), String> {
+    let Some(user_identity) = ctx.db.user_identity().identity().find(ctx.sender)
+    else {
+        warn!("Sender ({}) has no user identity", ctx.sender);
+        return Ok(());
+    };
+
+    if user_identity.user_id == 0 {
+        return Err("Not logged out, log out first".into());
+    }
+
+    let Some(user) = ctx.db.user().id().find(user_identity.user_id)
+    else {
+        return Err("No player with that id".into());
+    };
+
+    ctx.db.user().id().update(User {
+        username: new_username,
+        ..user
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn delete_user(ctx: &ReducerContext, user_id: u32) {
     ctx.db.user().id().delete(user_id);
 

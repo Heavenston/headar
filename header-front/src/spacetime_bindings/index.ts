@@ -52,6 +52,8 @@ import { IdentityConnected } from "./identity_connected_reducer.ts";
 export { IdentityConnected };
 import { IdentityDisconnected } from "./identity_disconnected_reducer.ts";
 export { IdentityDisconnected };
+import { Rename } from "./rename_reducer.ts";
+export { Rename };
 
 // Import and reexport all table handle types
 import { RangeAvailabilityTableHandle } from "./range_availability_table.ts";
@@ -137,6 +139,10 @@ const REMOTE_MODULE = {
       reducerName: "identity_disconnected",
       argsType: IdentityDisconnected.getTypeScriptAlgebraicType(),
     },
+    rename: {
+      reducerName: "rename",
+      argsType: Rename.getTypeScriptAlgebraicType(),
+    },
   },
   // Constructors which are used by the DbConnectionImpl to
   // extract type information from the generated RemoteModule.
@@ -174,6 +180,7 @@ export type Reducer = never
 | { name: "DiconnectFromClient", args: DiconnectFromClient }
 | { name: "IdentityConnected", args: IdentityConnected }
 | { name: "IdentityDisconnected", args: IdentityDisconnected }
+| { name: "Rename", args: Rename }
 ;
 
 export class RemoteReducers {
@@ -319,6 +326,22 @@ export class RemoteReducers {
     this.connection.offReducer("identity_disconnected", callback);
   }
 
+  rename(newUsername: string) {
+    const __args = { newUsername };
+    let __writer = new BinaryWriter(1024);
+    Rename.getTypeScriptAlgebraicType().serialize(__writer, __args);
+    let __argsBuffer = __writer.getBuffer();
+    this.connection.callReducer("rename", __argsBuffer, this.setCallReducerFlags.renameFlags);
+  }
+
+  onRename(callback: (ctx: ReducerEventContext, newUsername: string) => void) {
+    this.connection.onReducer("rename", callback);
+  }
+
+  removeOnRename(callback: (ctx: ReducerEventContext, newUsername: string) => void) {
+    this.connection.offReducer("rename", callback);
+  }
+
 }
 
 export class SetReducerFlags {
@@ -360,6 +383,11 @@ export class SetReducerFlags {
   diconnectFromClientFlags: CallReducerFlags = 'FullUpdate';
   diconnectFromClient(flags: CallReducerFlags) {
     this.diconnectFromClientFlags = flags;
+  }
+
+  renameFlags: CallReducerFlags = 'FullUpdate';
+  rename(flags: CallReducerFlags) {
+    this.renameFlags = flags;
   }
 
 }
