@@ -1,13 +1,43 @@
-import { createComputed, createMemo, createSignal, For, onCleanup, Show, useContext, type Component } from 'solid-js';
+import { createMemo, createSignal, For, onCleanup, Show, useContext, type Component } from 'solid-js';
 import { eachDayOfInterval, eachWeekOfInterval, endOfDay, endOfMonth, endOfWeek, Interval, isSameDay, isWithinInterval, setMonth, startOfDay, startOfMonth } from "date-fns";
 import { GlobalStore } from './App';
 import { RangeAvailability } from './spacetime_bindings';
 
-// Availability level colors
-const COLOR_UNAVAILABLE = '#f0a5a5';
-const COLOR_ARRANGEABLE = '#f0d6a5';
-const COLOR_AVAILABLE = '#a5f0aa';
-const COLOR_NO_DATA = '#e5e7eb';
+type Level = {
+  name: string,
+  color: string,
+  selectionColor: string,
+  id: number
+};
+const LEVELS: Level[] = [
+  {
+    name: "Non spécifié",
+    color: '#e5e7eb',
+    selectionColor: '#cfd1d6',
+    id: -1,
+  },
+  {
+    name: "PAS disponible",
+    color: '#f0a5a5',
+    selectionColor: '#f07575',
+    id: 0,
+  },
+  {
+    name: "Arrangeable",
+    color: '#f0d6a5',
+    selectionColor: '#f0c085',
+    id: 1,
+  },
+  {
+    name: "Normalement Disponible",
+    color: '#a5f0aa',
+    selectionColor: '#5bf072',
+    id: 2,
+  },
+];
+
+const DEFAULT_LEVEL: Level = LEVELS[0];
+const LEVEL_BY_ID: Record<number, Level> = Object.fromEntries(LEVELS.map(l => [l.id, l] as const));
 
 const Calendar: Component = () => {
   const store = useContext(GlobalStore);
@@ -20,7 +50,7 @@ const Calendar: Component = () => {
   });
 
   const base_date = new Date(2025, 1, 1, 1);
-  const months = [5, 6, 7, 8];
+  const months: number[] = [6, 7];
   const intl = Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     month: "long",
@@ -33,7 +63,6 @@ const Calendar: Component = () => {
   const [hoveredDay, setHoveredDay] = createSignal<Date | null>(null);
   const [focusedUserId, setFocusedUserId] = createSignal<number | null>(null);
   const [lockedUserId, setLockedUserId] = createSignal<number | null>(null);
-  const [isPanelVisible, setIsPanelVisible] = createSignal(true);
   const [isAddingRangeLabel, setIsAddingRangeLabel] = createSignal(false);
   const [rangeLabelMessage, setRangeLabelMessage] = createSignal("");
   const [rangeLabelColor, setRangeLabelColor] = createSignal("#FF5733");
@@ -52,16 +81,13 @@ const Calendar: Component = () => {
     end = endOfDay(end);
 
     if (isAddingRangeLabel()) {
-      const hexColor = rangeLabelColor().replace('#', '');
-      const r = parseInt(hexColor.substring(0, 2), 16);
-      const g = parseInt(hexColor.substring(2, 4), 16);
-      const b = parseInt(hexColor.substring(4, 6), 16);
+      const r = parseInt(rangeLabelColor().substring(1, 3), 16);
+      const g = parseInt(rangeLabelColor().substring(3, 5), 16);
+      const b = parseInt(rangeLabelColor().substring(5, 7), 16);
       
       store.connection.reducers.createRangeLabel(
         rangeLabelMessage(),
-        r,
-        g,
-        b,
+        r, g, b,
         start.toISOString(),
         end.toISOString()
       );
@@ -94,13 +120,12 @@ const Calendar: Component = () => {
   }, { signal: controller.signal });
 
   return (
-    <div class={`h-screen gap-5 flex flex-row justify-center relative`}>
+    <div class={`gap-5 pb-5 flex flex-row justify-end items-start`}>
       <div class={`
         flex-grow p-5 flex flex-col gap-5 md:max-w-md
-        md:relative absolute z-10 bg-white
-        w-full ${isPanelVisible() ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}
-        transition duration-300 ease-in-out
-        md:translate-x-0 md:w-auto md:overflow-visible
+        z-10 bg-white
+
+        sticky top-5
       `}>
         <div>
           <span class="text-gray-600">Connected as </span>{store.users[store.user_id ?? 0]?.username}
@@ -151,27 +176,16 @@ const Calendar: Component = () => {
             <div class="">
               <h3 class="font-bold mb-3">Pinceau de niveau de disponibilité</h3>
               <div class="flex flex-col gap-3">
-                <div 
-                  class={`p-3 rounded cursor-pointer ${availabilityLevel() === 0 ? 'ring-2 ring-blue-500' : ''}`}
-                  style={{ background: COLOR_UNAVAILABLE }}
-                  onClick={() => setAvailabilityLevel(0)}
-                >
-                  PAS disponible
-                </div>
-                <div 
-                  class={`p-3 rounded cursor-pointer ${availabilityLevel() === 1 ? 'ring-2 ring-blue-500' : ''}`}
-                  style={{ background: COLOR_ARRANGEABLE }}
-                  onClick={() => setAvailabilityLevel(1)}
-                >
-                  Arrangeable
-                </div>
-                <div 
-                  class={`p-3 rounded cursor-pointer ${availabilityLevel() === 2 ? 'ring-2 ring-blue-500' : ''}`}
-                  style={{ background: COLOR_AVAILABLE }}
-                  onClick={() => setAvailabilityLevel(2)}
-                >
-                  Devrait être disponible
-                </div>
+                <For
+                  each={LEVELS}
+                  children={level => <div 
+                    class={`p-3 rounded cursor-pointer ${availabilityLevel() === level.id ? 'ring-2 ring-blue-500' : ''}`}
+                    style={{ background: level.color }}
+                    onClick={() => setAvailabilityLevel(level.id)}
+                  >
+                    {level.name}
+                  </div>}
+                />
 
                 <div class="border-t border-gray-300 my-2 pt-3">
                   <button
@@ -229,21 +243,23 @@ const Calendar: Component = () => {
                 <div class="p-3 bg-gray-100 rounded">
                   <h3 class="font-bold mb-2">Availabilities for {hoveredDay()?.toLocaleDateString()}</h3>
                   <div class="flex flex-col gap-2">
-                    <For each={Object.values(store.range_availability)
-                      .filter(p => p != null)
-                      .filter(p => hoveredDay() !== null && isWithinInterval(hoveredDay()!, { start: p.rangeStart, end: p.rangeEnd }))
-                      .sort((a, b) => b.availabilityLevel - a.availabilityLevel)}
+                    <For
+                      each={
+                        Object.values(store.range_availability)
+                          .filter(p => p != null)
+                          .filter(p => hoveredDay() !== null && isWithinInterval(hoveredDay()!, { start: p.rangeStart, end: p.rangeEnd }))
+                          .filter(range => range.availabilityLevel !== -1)
+                          .sort((a, b) => b.availabilityLevel - a.availabilityLevel)
+                      }
                       children={range => (
                         <div class="flex items-center gap-2">
                           <div class="w-4 h-4 rounded" 
                                style={{ 
-                                 background: range.availabilityLevel === 0 ? COLOR_UNAVAILABLE : 
-                                             range.availabilityLevel === 1 ? COLOR_ARRANGEABLE : COLOR_AVAILABLE
+                                 background: LEVEL_BY_ID[range.availabilityLevel].color,
                                }}></div>
                           <span>{store.users[range.creatorUserId]?.username || 'Unknown user'}</span>
                           <span class="text-gray-500 text-sm">
-                            {range.availabilityLevel === 0 ? '(Not available)' : 
-                             range.availabilityLevel === 1 ? '(Arrangeable)' : '(Available)'}
+                            ({LEVEL_BY_ID[range.availabilityLevel].name})
                           </span>
                         </div>
                       )}
@@ -367,22 +383,12 @@ const Calendar: Component = () => {
           </Show>
         </div>
       </div>
-      <button
-        class="md:hidden fixed top-2 right-2 z-20 bg-blue-500 text-white p-2 rounded shadow-md"
-        onClick={() => setIsPanelVisible(!isPanelVisible())}
-      >
-        {isPanelVisible() ? '← Back to Calendar' : '→ Options'}
-      </button>
       
-      <div class={`
-        min-h-screen overflow-auto gap-5 flex flex-col p-5 
-        md:ml-0 ml-2
-        ${isPanelVisible() ? 'md:block hidden' : 'block'}
-      `}>
+      <div class={`gap-5 flex flex-col p-5`}>
         <For each={months.map(mi => setMonth(base_date, mi))} children={month => {
           const monthInterval = { start: startOfMonth(month), end: endOfMonth(month) };
           {/* Month */}
-          return <div class="flex flex-col gap-3">
+          return <div class="flex flex-1 flex-col gap-3">
             <h2 class="capitalize text-xl">{intl.format(month)}</h2>
             <div class={`gap-1 md:gap-3 flex flex-col`}>
               {/* Week */}
@@ -424,8 +430,8 @@ const Calendar: Component = () => {
                         }
                       });
                       const bestLevel = () => packs().reduce((best, _current, current, arr) => arr[current] > arr[best] ? current : best);
-                      const personalLevel = createMemo<number | null>(() => (
-                        myRanges().find(p => p.creatorUserId === store.user_id)?.availabilityLevel ?? null
+                      const personalLevel = createMemo<number>(() => (
+                        myRanges().find(p => p.creatorUserId === store.user_id)?.availabilityLevel ?? DEFAULT_LEVEL.id
                       ));
 
                       const renderTargetLevel = () => tab() === "personal" ? personalLevel() : bestLevel();
@@ -434,10 +440,7 @@ const Calendar: Component = () => {
                       const getBackgroundStyle = (): { background: string } => {
                         if (tab() === "personal") {
                           return {
-                            background: renderTargetLevel() === 0 ? COLOR_UNAVAILABLE : 
-                                        renderTargetLevel() === 1 ? COLOR_ARRANGEABLE : 
-                                        renderTargetLevel() === 2 ? COLOR_AVAILABLE :
-                                                                    COLOR_NO_DATA
+                            background: LEVEL_BY_ID[renderTargetLevel()].color,
                           };
                         } else {
                           // When focusing on a specific user, show only their availability
@@ -446,26 +449,29 @@ const Calendar: Component = () => {
                             const userRange = myRanges().find(range => range.creatorUserId === targetUserId);
                             if (userRange) {
                               return {
-                                background: userRange.availabilityLevel === 0 ? COLOR_UNAVAILABLE : 
-                                            userRange.availabilityLevel === 1 ? COLOR_ARRANGEABLE : COLOR_AVAILABLE
+                                background: LEVEL_BY_ID[userRange.availabilityLevel].color,
                               };
                             }
-                            return { background: COLOR_NO_DATA }; // for no data
+                            return { background: DEFAULT_LEVEL.color };
                           }
                           
                           // Regular aggregate view with proportional coloring
                           const total = packs()[0] + packs()[1] + packs()[2];
-                          if (total === 0) return { background: COLOR_NO_DATA };
+                          if (total === 0) return { background: DEFAULT_LEVEL.color };
                           
                           const prop0 = (packs()[0] / total) * 100;
                           const prop1 = (packs()[1] / total) * 100;
                           // const prop2 = (packs()[2] / total) * 100;
                           
+                          const c0 = LEVEL_BY_ID[0].color;
+                          const c1 = LEVEL_BY_ID[1].color;
+                          const c2 = LEVEL_BY_ID[2].color;
+                          
                           return {
                             background: `linear-gradient(to right, 
-                              ${COLOR_UNAVAILABLE} 0%, ${COLOR_UNAVAILABLE} ${prop0}%, 
-                              ${COLOR_ARRANGEABLE} ${prop0}%, ${COLOR_ARRANGEABLE} ${prop0 + prop1}%, 
-                              ${COLOR_AVAILABLE} ${prop0 + prop1}%, ${COLOR_AVAILABLE} 100%)`
+                              ${c0} 0%, ${c0} ${prop0}%, 
+                              ${c1} ${prop0}%, ${c1} ${prop0 + prop1}%, 
+                              ${c2} ${prop0 + prop1}%, ${c2} 100%)`
                           };
                         }
                       };
@@ -481,7 +487,7 @@ const Calendar: Component = () => {
                                 class={`h-1.5 w-full range-label-line cursor-pointer ${index === 0 ? 'rounded-t-md' : ''}`}
                                 style={{ 
                                   background: `rgb(${label.colorR}, ${label.colorG}, ${label.colorB})`,
-                                  marginTop: index > 0 ? '1px' : '0',
+                                  "margin-top": index > 0 ? '1px' : '0',
                                 }}
                                 title={label.title}
                               />
@@ -502,7 +508,8 @@ const Calendar: Component = () => {
                           style={{
                             ...getBackgroundStyle(),
                             "outline-color": tab() === "personal" ? (
-                              isAddingRangeLabel() ? rangeLabelColor() : ["red", "#FFD400", "#00A800"][availabilityLevel()]
+                              // isAddingRangeLabel() ? rangeLabelColor() : ["red", "#FFD400", "#00A800"][availabilityLevel()]
+                              isAddingRangeLabel() ? rangeLabelColor() : LEVEL_BY_ID[availabilityLevel()].selectionColor
                             ) : undefined,
                           }}
                           oncontextmenu={e => {
