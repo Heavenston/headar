@@ -314,9 +314,11 @@ const Calendar: Component = () => {
                             <div class="w-4 h-4 rounded-full" 
                                 style={{ background: `rgb(${label.colorR}, ${label.colorG}, ${label.colorB})` }}></div>
                             <span class="flex-grow">{label.title}</span>
-                            <span class="text-gray-500 text-sm">
-                              ({store.users[label.creatorUserId]?.username || 'Unknown user'})
-                            </span>
+                            <Show when={store.user_id !== label.creatorUserId}>
+                              <span class="text-gray-500 text-sm">
+                                ({store.users[label.creatorUserId]?.username || 'Unknown user'})
+                              </span>
+                            </Show>
                             <Show when={store.user_id === label.creatorUserId}>
                               <button
                                 class="text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-300 cursor-pointer"
@@ -377,6 +379,11 @@ const Calendar: Component = () => {
                               style={{ background: `rgb(${label.colorR}, ${label.colorG}, ${label.colorB})` }} 
                             />
                             <div class="flex-grow">{label.title}</div>
+                            <Show when={store.user_id !== label.creatorUserId}>
+                              <span class="text-gray-500 text-sm">
+                                ({store.users[label.creatorUserId]?.username || 'Unknown user'})
+                              </span>
+                            </Show>
                             <Show when={store.user_id === label.creatorUserId}>
                               <button
                                 class="text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-300 cursor-pointer"
