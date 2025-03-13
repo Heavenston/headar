@@ -22,7 +22,7 @@ const App: Component = () => {
     ready: false,
     connection: DbConnection.builder()
       .withUri("wss://spacetimedb-nautilus.heav.fr")
-      .withModuleName("headar")
+      .withModuleName(import.meta.env.VITE_SPACETIME_MODULE ?? "headar")
       .withToken(localStorage.getItem("token") ?? undefined)
       .onConnect(on_connect)
       .onDisconnect(on_disconnect)
