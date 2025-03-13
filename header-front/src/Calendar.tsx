@@ -50,7 +50,7 @@ const Calendar: Component = () => {
   });
 
   const base_date = new Date(2025, 1, 1, 1);
-  const months: number[] = [5, 6, 7, 8];
+  const months: number[] = [6, 7, 8];
   const intl = Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     month: "long",
