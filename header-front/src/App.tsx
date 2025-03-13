@@ -5,6 +5,9 @@ import { Identity } from "@clockworklabs/spacetimedb-sdk";
 import Login from "./Login";
 import Calendar from "./Calendar";
 
+if (import.meta.env.DEV)
+  document.title += " Dev";
+
 export type GlobalStore = {
   ready: boolean,
   connection: DbConnection,
