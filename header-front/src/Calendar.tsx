@@ -50,7 +50,7 @@ const Calendar: Component = () => {
   });
 
   const base_date = new Date(2025, 1, 1, 1);
-  const months: number[] = [6, 7];
+  const months: number[] = [5, 6, 7, 8];
   const intl = Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     month: "long",
@@ -63,6 +63,7 @@ const Calendar: Component = () => {
   const [hoveredDay, setHoveredDay] = createSignal<Date | null>(null);
   const [focusedUserId, setFocusedUserId] = createSignal<number | null>(null);
   const [lockedUserId, setLockedUserId] = createSignal<number | null>(null);
+  const [isPanelVisible, setIsPanelVisible] = createSignal(false);
   const [isAddingRangeLabel, setIsAddingRangeLabel] = createSignal(false);
   const [rangeLabelMessage, setRangeLabelMessage] = createSignal("");
   const [rangeLabelColor, setRangeLabelColor] = createSignal("#FF5733");
@@ -120,32 +121,49 @@ const Calendar: Component = () => {
   }, { signal: controller.signal });
 
   return (
-    <div class={`gap-5 pb-5 flex flex-row justify-end items-start`}>
-      <div class={`
-        flex-grow p-5 flex flex-col gap-5 md:max-w-md
-        z-10 bg-white
+    <div class={`gap-5 pb-5 flex flex-row justify-end items-start ${isPanelVisible() ? "overflow-hidden lg:overflow-visible h-screen lg:h-auto" : ""}`}>
 
-        sticky top-5
+      <div class={`
+        flex-grow p-5 flex flex-col gap-5
+        z-10 bg-white
+        w-full h-full
+        lg:h-auto lg:max-w-md
+
+        absolute inset
+        lg:sticky lg:top-5 lg:z-99
+
+        ${isPanelVisible() ? "" : "hidden lg:visible"}
       `}>
-        <div>
-          <span class="text-gray-600">Connected as </span>{store.users[store.user_id ?? 0]?.username}
-          {" "}<button
-            class={`bg-orange-300 px-1 rounded cursor-pointer`}
-            onClick={() => {
-              store.connection.reducers.diconnectFromClient();
-            }}
-          >
-            Sign out
-          </button>
-          {" "}<button
-            class={`bg-red-400 px-1 rounded cursor-pointer`}
-            onClick={() => {
-              if (confirm("ARE YOU SURE YOU WANT DO COMPLETELY DELETE YOUR PROFILE?"))
-                store.connection.reducers.deleteUser(store.user_id ?? 0);
-            }}
-          >
-            DELETE ACCOUNT
-          </button>
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-row flex-wrap-reverse gap-2">
+            <span class="text-gray-600">Connected as </span>{store.users[store.user_id ?? 0]?.username}
+            <span class="flex-grow" />
+            <button
+              class="px-2 bg-blue-400 hover:bg-blue-500 cursor-pointer rounded lg:hidden"
+              onClick={() => setIsPanelVisible(false)}
+            >
+              Hide
+            </button>
+          </div>
+          <div class={`flex flex-row gap-2 flex-wrap`}>
+            <button
+              class={`bg-orange-300 px-1 rounded cursor-pointer`}
+              onClick={() => {
+                store.connection.reducers.diconnectFromClient();
+              }}
+            >
+              Sign out
+            </button>
+            <button
+              class={`bg-red-400 px-1 rounded cursor-pointer`}
+              onClick={() => {
+                if (confirm("ARE YOU SURE YOU WANT DO COMPLETELY DELETE YOUR PROFILE?"))
+                  store.connection.reducers.deleteUser(store.user_id ?? 0);
+              }}
+            >
+              DELETE ACCOUNT
+            </button>
+          </div>
         </div>
         
         <div class={`flex flex-col gap-3`}>
@@ -174,7 +192,8 @@ const Calendar: Component = () => {
 
           <Show when={tab() === "personal"}>
             <div class="">
-              <h3 class="font-bold mb-3">Pinceau de niveau de disponibilité</h3>
+              <h3 class="font-bold">Availability level brush.</h3>
+              <div class="text-gray-800 mb-3">Select a days on the calendar to change them.</div>
               <div class="flex flex-col gap-3">
                 <For
                   each={LEVELS}
@@ -385,16 +404,32 @@ const Calendar: Component = () => {
       </div>
       
       <div class={`gap-5 flex flex-col p-5`}>
+        <div
+          class={`flex flex-row sticky top-5 right-5 z-99 ${isPanelVisible() ? "hidden" : ""}`}
+        >
+          <div class="flex-grow" />
+          <button
+            class="
+              px-3 py-1 bg-blue-400 hover:bg-blue-500
+              cursor-pointer rounded lg:hidden
+              shadow
+            "
+            onClick={() => setIsPanelVisible(true)}
+          >
+            Menu
+          </button>
+        </div>
+
         <For each={months.map(mi => setMonth(base_date, mi))} children={month => {
           const monthInterval = { start: startOfMonth(month), end: endOfMonth(month) };
           {/* Month */}
           return <div class="flex flex-1 flex-col gap-3">
             <h2 class="capitalize text-xl">{intl.format(month)}</h2>
-            <div class={`gap-1 md:gap-3 flex flex-col`}>
+            <div class={`gap-1 lg:gap-3 flex flex-col`}>
               {/* Week */}
               <For
                 each={eachWeekOfInterval(monthInterval, { weekStartsOn: 1 })}
-                children={week => (<div class={`gap-1 md:gap-3 flex flex-row`}>
+                children={week => (<div class={`gap-1 lg:gap-3 flex flex-row`}>
                   <For
                     each={eachDayOfInterval({ start: week, end: endOfWeek(week, { weekStartsOn: 1 }) })}
                     children={day => {
@@ -499,9 +534,9 @@ const Calendar: Component = () => {
                       return (
                         <div 
                           class={`
-                            relative inline-block w-16 h-16 md:w-25 md:h-25 p-1 md:p-2 rounded
+                            relative inline-block w-10 h-10 lg:w-25 lg:h-25 p-1 lg:p-2 rounded
                             bg-gray-200 overflow-hidden
-                            select-none text-sm md:text-base
+                            select-none text-sm lg:text-base
                             ${is_selected() ? `outline-solid outline-yellow-500` : ``}
                             ${isWithinInterval(day, monthInterval) ? "opacity-100" : "opacity-25"}
                           `}
