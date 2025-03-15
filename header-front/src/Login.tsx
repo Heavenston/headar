@@ -69,7 +69,6 @@ const Login: Component = () => {
                   placeholder="username"
                   ref={e => { setTimeout(() => { e.focus(); }); }}
                   class="inline-block min-w-0 flex-grow rounded bg-gray-200 px-2"
-                  onBlur={() => { setTimeout(() => setCreating(false), 250) }}
                 />
                 <button class="inline-block rounded bg-gray-200 px-2">
                   Confirm
